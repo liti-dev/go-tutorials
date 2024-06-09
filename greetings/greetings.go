@@ -2,10 +2,9 @@ package greetings
 
 import (
 	"fmt"
-	"error"
+	"errors"
 )
 
-// Hello returns a greeting for the named person.
 func Hello(name string) (string, error) {
 	if name == "" {
 		return "", errors.New("Empty name. Please enter one!")
