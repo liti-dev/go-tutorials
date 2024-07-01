@@ -4,26 +4,35 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 )
 
 type Place struct {
-	ID string `json:"id"`
+	ID int `json:"id"`
 	Name string `json:"name"`
 	Address  string `json:"address"`
 	Description string `json:"description"`
 }
 
 var places = []Place{
-	{ID: "1", Name: "Paddock For Paws", Address:"HP3 0JS", Description:"A lovely paddock for the dog's. The field is a good size and fully secure agility equipment on the field selection of toys, tennis balls, paddling pools in the summer. "},
-	{ID: "2", Name: "Dinosaur Safari Adventure Golf", Address:"EN5 3HW", Description:"Bring the whole family, as everyone is welcome, even your dog!"},
-	{ID: "3", Name: "Three Horseshoes", Address:"AL4 0HP", Description:"Our country pub in St Albans features seasonal food, cask ale and is dog friendly"},
+	{ID: 1, Name: "Paddock For Paws", Address:"HP3 0JS", Description:"A lovely paddock for the dog's. The field is a good size and fully secure agility equipment on the field selection of toys, tennis balls, paddling pools in the summer. "},
+	{ID: 2, Name: "Dinosaur Safari Adventure Golf", Address:"EN5 3HW", Description:"Bring the whole family, as everyone is welcome, even your dog!"},
+	{ID: 3, Name: "Three Horseshoes", Address:"AL4 0HP", Description:"Our country pub in St Albans features seasonal food, cask ale and is dog friendly"},
 }
 
+var nextID = 4
+
 func main() {
-	http.HandleFunc("/places", getPlaces)	
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	mux := http.NewServeMux()
+  mux.HandleFunc("GET /places", getPlaces)
+
+  mux.HandleFunc("GET /places/{id}/", getPlace)
+  
+	slog.Info("Starting on port 8080")
+  http.ListenAndServe("localhost:8080", mux)
+
 }
 
 func getPlaces(w http.ResponseWriter, _ *http.Request) {
@@ -36,7 +45,12 @@ func getPlaces(w http.ResponseWriter, _ *http.Request) {
 w.Write(resp)	
 }
 
-func getPlace(w http.ResponseWriter, _ *http.Request, id string) {
+func getPlace(w http.ResponseWriter, r *http.Request) {
+	
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		log.Fatal(err)
+	}
 	for _, place := range places {
 		if place.ID == id {
 			resp, err := json.Marshal(place)
@@ -47,9 +61,10 @@ func getPlace(w http.ResponseWriter, _ *http.Request, id string) {
 			w.Write(resp)
 			return
 		}
+		
 }
 // Where to put this?
-	io.WriteString(w, "Place not found")
+io.WriteString(w, "Place not found")
 }
 
 func createPlace(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +80,8 @@ func createPlace(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	place.ID = strconv.Itoa(len(places) + 1)
+	place.ID = nextID
+	nextID += 1
 	places = append(places, place)
 	resp, err := json.Marshal(place)
 	if err != nil {
@@ -75,7 +91,7 @@ func createPlace(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
-func updatePlace(w http.ResponseWriter, r *http.Request, id string) {
+func updatePlace(w http.ResponseWriter, r *http.Request, id int) {
 	for index, item := range places {
 		if item.ID == id {
 			var updatedPlace Place
@@ -103,7 +119,7 @@ func updatePlace(w http.ResponseWriter, r *http.Request, id string) {
 	io.WriteString(w, "Place not found")
 }
 
-func deletePlace(w http.ResponseWriter, _ *http.Request, id string) {
+func deletePlace(w http.ResponseWriter, _ *http.Request, id int) {
 	for index, item := range places {
 		if item.ID == id {
 			places = append(places[:index], places[index+1:]...)
@@ -121,3 +137,8 @@ func deletePlace(w http.ResponseWriter, _ *http.Request, id string) {
 func handler(w http.ResponseWriter, r *http.Request) {
 	
 }
+
+// Auto increment ID
+
+
+// Data structures: Map, Struc
