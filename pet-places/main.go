@@ -16,19 +16,31 @@ type Place struct {
 	Description string `json:"description"`
 }
 
-var places = []Place{
-	{ID: 1, Name: "Paddock For Paws", Address:"HP3 0JS", Description:"A lovely paddock for the dog's. The field is a good size and fully secure agility equipment on the field selection of toys, tennis balls, paddling pools in the summer. "},
-	{ID: 2, Name: "Dinosaur Safari Adventure Golf", Address:"EN5 3HW", Description:"Bring the whole family, as everyone is welcome, even your dog!"},
-	{ID: 3, Name: "Three Horseshoes", Address:"AL4 0HP", Description:"Our country pub in St Albans features seasonal food, cask ale and is dog friendly"},
-}
+// var places = []Place{
+// 	{ID: 1, Name: "Paddock For Paws", Address:"HP3 0JS", Description:"A lovely paddock for the dog's. The field is a good size and fully secure agility equipment on the field selection of toys, tennis balls, paddling pools in the summer. "},
+// 	{ID: 2, Name: "Dinosaur Safari Adventure Golf", Address:"EN5 3HW", Description:"Bring the whole family, as everyone is welcome, even your dog!"},
+// 	{ID: 3, Name: "Three Horseshoes", Address:"AL4 0HP", Description:"Our country pub in St Albans features seasonal food, cask ale and is dog friendly"},
+// }
 
 var nextID = 4
+
+var places = map[int]Place{
+	1:{ID: 1, Name: "Paddock For Paws", Address:"HP3 0JS", Description:"A lovely paddock for the dog's. The field is a good size and fully secure agility equipment on the field selection of toys, tennis balls, paddling pools in the summer. "},
+	2:{ID: 2, Name: "Dinosaur Safari Adventure Golf", Address:"EN5 3HW", Description:"Bring the whole family, as everyone is welcome, even your dog!"},
+	3:{ID: 3, Name: "Three Horseshoes", Address:"AL4 0HP", Description:"Our country pub in St Albans features seasonal food, cask ale and is dog friendly"},
+}
 
 func main() {
 	mux := http.NewServeMux()
   mux.HandleFunc("GET /places", getPlaces)
 
-  mux.HandleFunc("GET /places/{id}/", getPlace)
+	mux.HandleFunc("POST /places", createPlace)
+
+  mux.HandleFunc("GET /places/{id}", getPlace)	
+
+	mux.HandleFunc("PUT /places/{id}", updatePlace)
+
+	mux.HandleFunc("DELETE /places/{id}", deletePlace)
   
 	slog.Info("Starting on port 8080")
   http.ListenAndServe("localhost:8080", mux)
@@ -82,7 +94,8 @@ func createPlace(w http.ResponseWriter, r *http.Request) {
 	}
 	place.ID = nextID
 	nextID += 1
-	places = append(places, place)
+	// places = append(places, place)
+	places[nextID] = place
 	resp, err := json.Marshal(place)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -91,7 +104,12 @@ func createPlace(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
-func updatePlace(w http.ResponseWriter, r *http.Request, id int) {
+func updatePlace(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	for index, item := range places {
 		if item.ID == id {
 			var updatedPlace Place
@@ -119,26 +137,16 @@ func updatePlace(w http.ResponseWriter, r *http.Request, id int) {
 	io.WriteString(w, "Place not found")
 }
 
-func deletePlace(w http.ResponseWriter, _ *http.Request, id int) {
-	for index, item := range places {
-		if item.ID == id {
-			places = append(places[:index], places[index+1:]...)
-			resp, err := json.Marshal(places)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			w.Write(resp)			
-		}
-	}
-	io.WriteString(w, "Place not found")
+func deletePlace(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		log.Fatal(err)
+	}	
+			// places = append(places[:index], places[index+1:]...)
+	delete(places, id)	
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	
-}
-
-// Auto increment ID
 
 
-// Data structures: Map, Struc
+// Data structures: Map (id), Struc
+// Unit testing
