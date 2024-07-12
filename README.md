@@ -10,3 +10,4 @@ Other resources:
 - [x] Getting started with packages
 - [x] Create a module. How to call code from another module
 - [x] Write a basic RESTful API with Go
+- [x] Test the API with Postman
