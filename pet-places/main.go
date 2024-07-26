@@ -1,14 +1,21 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
+
+	_ "github.com/lib/pq"
 )
 
+var (
+	db *sql.DB
+)
 type Place struct {
 	ID int `json:"id"`
 	Name string `json:"name"`
@@ -31,6 +38,21 @@ var places = map[int]Place{
 }
 
 func main() {
+	// Postgres connection
+	connStr := "postgres://user:password@localhost:5432/petplaces?sslmode=disable"
+	db,err:=sql.Open("postgres",connStr)
+	if err!=nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	pingErr:=db.Ping()
+	if pingErr!=nil {
+		log.Fatal(pingErr)
+	}
+
+	createPlaceTable(db)
+
 	mux := http.NewServeMux()
   mux.HandleFunc("GET /places", getPlaces)
 
@@ -44,6 +66,7 @@ func main() {
   
 	slog.Info("Starting on port 8080")
   http.ListenAndServe("localhost:8080", mux)
+	
 
 }
 
@@ -92,10 +115,14 @@ func createPlace(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	place.ID = nextID
-	nextID += 1
+
+	// Insert place into db
+	// place.ID = nextID
+	// nextID += 1
+	place.ID = insertPlace(db,place)
+	places[place.ID] = place
 	// places = append(places, place)
-	places[nextID] = place
+	// places[nextID] = place
 	resp, err := json.Marshal(place)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -110,6 +137,8 @@ func updatePlace(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	// Do we need loop?
 	for index, item := range places {
 		if item.ID == id {
 			var updatedPlace Place
@@ -123,15 +152,20 @@ func updatePlace(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
+
 			updatedPlace.ID = id // Ensure the ID remains the same
+			err=updatePlaceInDB(db, updatedPlace)
+			if err!=nil {
+				log.Fatal(err)
+			}
 			places[index] = updatedPlace
+
 			resp, err := json.Marshal(updatedPlace)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			w.Write(resp)
-			return
 		}
 	}
 	io.WriteString(w, "Place not found")
@@ -142,11 +176,57 @@ func deletePlace(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}	
+
+	err=deletePlaceFromDB(db,id)
+	if err!=nil {
+		log.Fatal(err)
+	}
 			// places = append(places[:index], places[index+1:]...)
 	delete(places, id)	
 }
 
 
+func createPlaceTable(db *sql.DB) {
+	query:= `CREATE TABLE IF NOT EXISTS place (
+	id SERIAL PRIMARY KEY,
+	name VARCHAR(100) NOT NULL,
+	address VARCHAR(100) NOT NULL,
+	description TEXT,
+	created timestamp DEFAULT NOW()
+	)`
 
+	_,err:=db.Exec(query)
+	if err!=nil {
+		log.Fatal(err)
+	}
+
+}
+
+func insertPlace(db *sql.DB, place Place) int {
+	query:= `INSERT INTO place (name, address, description)
+	VALUES ($1, $2, $3) RETURNING id`
+	var id int
+	err:=db.QueryRow(query, place.Name, place.Address, place.Description).Scan(&id)
+	if err!=nil {
+		log.Fatal(err)
+	}
+	fmt.Print("Inserted ID=",id)
+	return id
+}
+
+func updatePlaceInDB(db *sql.DB, place Place) error {
+	query := `UPDATE place SET name=$1, address=$2, description=$3 WHERE id=$4`
+	_, err := db.Exec(query, place.Name, place.Address, place.Description, place.ID)
+	fmt.Print("Updated",place)
+	return err
+}
+
+func deletePlaceFromDB(db *sql.DB, id int) error {
+	query :=`DELETE FROM place WHERE id=$1`
+	_,err:=db.Exec(query,id)
+	fmt.Print("Deleted ID=",id)
+	
+	return err
+}
 // Data structures: Map (id), Struc
 // Unit testing
