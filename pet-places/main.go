@@ -29,7 +29,7 @@ type Place struct {
 // 	{ID: 3, Name: "Three Horseshoes", Address:"AL4 0HP", Description:"Our country pub in St Albans features seasonal food, cask ale and is dog friendly"},
 // }
 
-var nextID = 4
+// var nextID = 4
 
 var places = map[int]Place{
 	1:{ID: 1, Name: "Paddock For Paws", Address:"HP3 0JS", Description:"A lovely paddock for the dog's. The field is a good size and fully secure agility equipment on the field selection of toys, tennis balls, paddling pools in the summer. "},
@@ -39,7 +39,7 @@ var places = map[int]Place{
 
 func main() {
 	// Postgres connection
-	connStr := "postgres://user:password@localhost:5432/petplaces?sslmode=disable"
+	connStr := "postgres://postgres:mysecretpassword@localhost:5432/petplaces?sslmode=disable"
 	db,err:=sql.Open("postgres",connStr)
 	if err!=nil {
 		log.Fatal(err)
@@ -139,8 +139,7 @@ func updatePlace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Do we need loop?
-	for index, item := range places {
-		if item.ID == id {
+
 			var updatedPlace Place
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -153,12 +152,12 @@ func updatePlace(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			updatedPlace.ID = id // Ensure the ID remains the same
-			err=updatePlaceInDB(db, updatedPlace)
+			 // Ensure the ID remains the same
+			err=updatePlaceInDB(db, updatedPlace, id)
 			if err!=nil {
 				log.Fatal(err)
 			}
-			places[index] = updatedPlace
+			
 
 			resp, err := json.Marshal(updatedPlace)
 			if err != nil {
@@ -166,8 +165,8 @@ func updatePlace(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			w.Write(resp)
-		}
-	}
+		
+	
 	io.WriteString(w, "Place not found")
 }
 
@@ -214,9 +213,9 @@ func insertPlace(db *sql.DB, place Place) int {
 	return id
 }
 
-func updatePlaceInDB(db *sql.DB, place Place) error {
+func updatePlaceInDB(db *sql.DB, place Place, id int) error {
 	query := `UPDATE place SET name=$1, address=$2, description=$3 WHERE id=$4`
-	_, err := db.Exec(query, place.Name, place.Address, place.Description, place.ID)
+	_, err := db.Exec(query, place.Name, place.Address, place.Description, id)
 	fmt.Print("Updated",place)
 	return err
 }
@@ -228,5 +227,6 @@ func deletePlaceFromDB(db *sql.DB, id int) error {
 	
 	return err
 }
+
 // Data structures: Map (id), Struc
 // Unit testing
