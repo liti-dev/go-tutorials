@@ -55,19 +55,13 @@ func main() {
 
 	mux := http.NewServeMux()
   mux.HandleFunc("GET /places", getPlaces)
-
 	mux.HandleFunc("POST /places", createPlace)
-
   mux.HandleFunc("GET /places/{id}", getPlace)	
-
 	mux.HandleFunc("PUT /places/{id}", updatePlace)
-
 	mux.HandleFunc("DELETE /places/{id}", deletePlace)
   
 	slog.Info("Starting on port 8080")
   http.ListenAndServe("localhost:8080", mux)
-	
-
 }
 
 func getPlaces(w http.ResponseWriter, _ *http.Request) {
