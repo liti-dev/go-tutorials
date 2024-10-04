@@ -30,11 +30,14 @@ func TestGetPlaceAPI(t *testing.T) {
 		Address:     "123 Avenue",
 		Description: "abc",
 	}
-	testPlace.ID = insertPlace(db, testPlace)
+	var err error
+	testPlace.ID, err = createPlaceDB(db, testPlace)
+	if err != nil {
+		t.Fatalf("Failed to insert place: %v", err)
+	}
 
 	// Setup HTTP Server
 	mux := http.NewServeMux()
-	
 
 	// Create a request to the /places/{id} endpoint
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/places/%d", testPlace.ID), nil)
@@ -51,4 +54,3 @@ func TestGetPlaceAPI(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 }
-
