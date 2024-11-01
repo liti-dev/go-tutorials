@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -10,8 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-
-	_ "github.com/lib/pq"
 )
 type Place struct {
 	ID          int    `json:"id"`
@@ -22,7 +19,7 @@ type Place struct {
 
 // server struct holds the db config and router
 type server struct {
-	db     *sql.DB
+	db     *DB
 	router *http.ServeMux
 }
 
@@ -34,40 +31,36 @@ func main() {
 		log.Fatal("DATABASE_URL can't be found")
 }
 
-	srv := &server{}
-
 	// short var declaration := does not work with struct srv.db
 	var err error
-	srv.db, err = sql.Open("postgres", connStr)
+	db, err := createDB(connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer srv.db.Close()
+	defer db.Close()
 
-	// db connection pooling???
-
-	pingErr := srv.db.Ping()
-	if pingErr != nil {
-		log.Fatal(pingErr)
+	err = db.createPlaceTable()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	createPlaceTable(srv.db)
-
 	// Set up router
-	// mux := http.NewServeMux()
-	srv.router = http.NewServeMux()
-	srv.routes()
+	srv := &server{
+		db:     db,           
+		router: http.NewServeMux(),
+	}
 
 	slog.Info("Starting on port 8080")
 	http.ListenAndServe("localhost:8080", srv.router)
 }
 
 func (s *server) routes() {
-	s.router.HandleFunc("GET /places", s.getPlaces)
-	s.router.HandleFunc("POST /places", s.createPlace)
-	s.router.HandleFunc("GET /places/{id}", s.getPlace)
-	s.router.HandleFunc("PUT /places/{id}", s.updatePlace)
-	s.router.HandleFunc("DELETE /places/{id}", s.deletePlace)
+	// Set up versioned routes for v1
+	s.router.HandleFunc("GET /v1/places", s.getPlaces)
+	s.router.HandleFunc("POST /v1/places", s.createPlace)
+	s.router.HandleFunc("GET /v1/places/{id}", s.getPlace)
+	s.router.HandleFunc("PUT /v1/places/{id}", s.updatePlace)
+	s.router.HandleFunc("DELETE /v1/places/{id}", s.deletePlace)
 }
 
 
@@ -75,26 +68,26 @@ func (s *server) routes() {
 // Validate input to improve security
 func validatePlace(place *Place) error {
 	if place.Name == "" {
-		return errors.New("Name is required")
+		return errors.New("name is required")
 }
 if len(place.Name) > 100 {
-		return errors.New("Name cannot exceed 100 characters")
+		return errors.New("name cannot exceed 100 characters")
 }
 if place.Address == "" {
-		return errors.New("Address is required")
+		return errors.New("address is required")
 }
 if len(place.Address) > 200 {
-		return errors.New("Address cannot exceed 200 characters")
+		return errors.New("address cannot exceed 200 characters")
 }
 if len(place.Description) > 500 {
-		return errors.New("Description cannot exceed 500 characters")
+		return errors.New("description cannot exceed 500 characters")
 }
 return nil
 }
 
 func (s *server) getPlaces(w http.ResponseWriter, _ *http.Request) {
 	// Using db instead of local memory
-	places, err := getPlacesDB(s.db)
+	places, err := s.db.getPlacesDB()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -108,9 +101,13 @@ func (s *server) getPlaces(w http.ResponseWriter, _ *http.Request) {
 	w.Write(resp)
 }
 
-func (s *server) getPlace(w http.ResponseWriter, r *http.Request, id int) {
+func (s *server) getPlace(w http.ResponseWriter, r *http.Request) {
+id, err := strconv.Atoi(r.PathValue("id"))
+if err != nil {
+	http.Error(w, "ID not found", http.StatusBadRequest)
+}
 
-	place, err := getPlaceDB(s.db, id)
+place, err := s.db.getPlaceDB(id)
 	if err != nil {
 		http.Error(w, "ID not found", http.StatusBadRequest)
 	}
@@ -146,7 +143,7 @@ func (s *server) createPlace(w http.ResponseWriter, r *http.Request) {
 }
 
 	// Insert place into db
-	place.ID, err = createPlaceDB(s.db, place)
+	place.ID, err = s.db.createPlaceDB(place)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -161,7 +158,7 @@ func (s *server) createPlace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) updatePlace(w http.ResponseWriter, r *http.Request) {
-	// id, err := strconv.Atoi(r.PathValue("id"))
+	
 	idStr := r.URL.Path[len("/places/"):]
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -188,7 +185,7 @@ func (s *server) updatePlace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = updatePlaceDB(s.db, updatedPlace, id)
+	err = s.db.updatePlaceDB(updatedPlace, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -203,32 +200,11 @@ func (s *server) deletePlace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = deletePlaceDB(s.db, id)
+	err = s.db.deletePlaceDB(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
-
-func createPlaceTable(db *sql.DB) {
-	query := `CREATE TABLE IF NOT EXISTS places (
-	id SERIAL PRIMARY KEY,
-	name VARCHAR(100) NOT NULL,
-	address VARCHAR(100) NOT NULL,
-	description TEXT,
-	created timestamp DEFAULT NOW()
-	)`
-
-	_, err := db.Exec(query)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-
-
-// create postman requests for create/getPlace
-// move sql query into func for getplace and getplaces
-// create db.go and move db funcs into that file
 
