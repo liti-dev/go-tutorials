@@ -23,7 +23,7 @@ WORKDIR /app
 
 # Copy the binary from the build stage
 COPY --from=build /app/pet-places .
-ENV DATABASE_URL="postgres://postgres:mysecretpassword@postgres:5432/petplaces?sslmode=disable"
+
 # Look into docker compose
 
 # Set the timezone and install CA certificates

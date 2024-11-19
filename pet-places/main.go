@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 type Place struct {
 	ID          int    `json:"id"`
@@ -25,7 +27,11 @@ type server struct {
 
 func main() {
 	// Postgres connection
-	// os.Setenv("DATABASE_URL", "postgres://postgres:mysecretpassword@postgres:5432/petplaces?sslmode=disable")
+	errEnv := godotenv.Load()
+	if errEnv != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	connStr := os.Getenv("DATABASE_URL")
 	if connStr == "" {
 		log.Fatal("DATABASE_URL can't be found")
