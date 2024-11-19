@@ -25,7 +25,7 @@ type server struct {
 
 func main() {
 	// Postgres connection
-	os.Setenv("DATABASE_URL", "postgres://postgres:mysecretpassword@localhost:5432/petplaces?sslmode=disable")
+	// os.Setenv("DATABASE_URL", "postgres://postgres:mysecretpassword@postgres:5432/petplaces?sslmode=disable")
 	connStr := os.Getenv("DATABASE_URL")
 	if connStr == "" {
 		log.Fatal("DATABASE_URL can't be found")
@@ -50,20 +50,25 @@ func main() {
 		router: http.NewServeMux(),
 	}
 
+	srv.routes()
+
 	slog.Info("Starting on port 8080")
-	http.ListenAndServe("localhost:8080", srv.router)
+	err = http.ListenAndServe("localhost:8080", srv.router)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (s *server) routes() {
 	// Set up versioned routes for v1
+	
 	s.router.HandleFunc("GET /v1/places", s.getPlaces)
 	s.router.HandleFunc("POST /v1/places", s.createPlace)
 	s.router.HandleFunc("GET /v1/places/{id}", s.getPlace)
 	s.router.HandleFunc("PUT /v1/places/{id}", s.updatePlace)
 	s.router.HandleFunc("DELETE /v1/places/{id}", s.deletePlace)
 }
-
-
+// Look into grouping gorilla mux/ gin
 
 // Validate input to improve security
 func validatePlace(place *Place) error {
