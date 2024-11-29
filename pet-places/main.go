@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-
-	"github.com/joho/godotenv"
 )
 type Place struct {
 	ID          int    `json:"id"`
@@ -27,10 +25,10 @@ type server struct {
 
 func main() {
 	// Postgres connection
-	errEnv := godotenv.Load()
-	if errEnv != nil {
-		log.Fatal("Error loading .env file")
-	}
+	// errEnv := godotenv.Load()
+	// if errEnv != nil {
+	// 	log.Fatal("Error loading .env file")
+	// }
 
 	connStr := os.Getenv("DATABASE_URL")
 	if connStr == "" {
@@ -59,7 +57,7 @@ func main() {
 	srv.routes()
 
 	slog.Info("Starting on port 8080")
-	err = http.ListenAndServe("localhost:8080", srv.router)
+	err = http.ListenAndServe("0.0.0.0:8080", srv.router)
 	if err != nil {
 		log.Fatal(err)
 	}

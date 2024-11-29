@@ -1,0 +1,27 @@
+version: "3.8" # Specify the Docker Compose file format version
+services:
+  postgres:
+    image: postgres:15 # Use the official PostgreSQL image
+    container_name: postgres_container
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5432:5432" # Map the database to port 5432 on your host
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persistent data storage
+
+  app:
+    build:
+      context: . # Use the current directory to build the image
+    container_name: pet_places_app
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable # Database connection URL
+    depends_on:
+      - postgres # Ensure the database starts before the app
+    ports:
+      - "8080:8080" # Expose the app on port 8080
+
+volumes:
+  postgres_data:
