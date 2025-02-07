@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"log/slog"
@@ -25,11 +26,6 @@ type server struct {
 
 func main() {
 	// Postgres connection
-	// errEnv := godotenv.Load()
-	// if errEnv != nil {
-	// 	log.Fatal("Error loading .env file")
-	// }
-
 	connStr := os.Getenv("DATABASE_URL")
 	if connStr == "" {
 		log.Fatal("DATABASE_URL can't be found")
@@ -54,7 +50,9 @@ func main() {
 		router: http.NewServeMux(),
 	}
 
-	srv.routes()
+	logger := slog.Default()
+	lm := logMiddleware(logger)
+	srv.routes(lm)
 
 	slog.Info("Starting on port 8080")
 	err = http.ListenAndServe("0.0.0.0:8080", srv.router)
@@ -63,16 +61,25 @@ func main() {
 	}
 }
 
-func (s *server) routes() {
+func (s *server) routes(lm func(http.Handler) http.Handler) {
 	// Set up versioned routes for v1
 	
-	s.router.HandleFunc("GET /v1/places", s.getPlaces)
+	s.router.Handle("GET /v1/places", lm(http.HandlerFunc(s.getPlaces)))
 	s.router.HandleFunc("POST /v1/places", s.createPlace)
 	s.router.HandleFunc("GET /v1/places/{id}", s.getPlace)
 	s.router.HandleFunc("PUT /v1/places/{id}", s.updatePlace)
 	s.router.HandleFunc("DELETE /v1/places/{id}", s.deletePlace)
 }
-// Look into grouping gorilla mux/ gin
+
+func logMiddleware(l *slog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// l.Println(r.Method, r.URL.Path)
+			next.ServeHTTP(w, r)
+			l.Warn("Made it")
+		})
+	}
+}
 
 // Validate input to improve security
 func validatePlace(place *Place) error {
@@ -94,13 +101,28 @@ if len(place.Description) > 500 {
 return nil
 }
 
-func (s *server) getPlaces(w http.ResponseWriter, _ *http.Request) {
+func (s *server) getPlaces(w http.ResponseWriter, r *http.Request) {
+	// where to add query params?
+	queryParams := r.URL.Query()
+	nameQuery := queryParams.Get("name") 
 	// Using db instead of local memory
-	places, err := s.db.getPlacesDB()
+	places, err := s.db.getPlacesDB(nameQuery)// pass the query into db
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	fmt.Println(nameQuery)
+	// Option 1: Filter places by name
+	// filteredPlaces := []Place{}
+	// for _, place := range places {
+	// 	if nameQuery != "" && !strings.Contains(strings.ToLower(place.Name), strings.ToLower(nameQuery)) {
+	// 		continue
+	// 	}
+	// 	filteredPlaces = append(filteredPlaces, place)
+
+	// }
+	// Option 2: Filter by querying db
 
 	resp, err := json.Marshal(places)
 	if err != nil {
@@ -217,3 +239,5 @@ func (s *server) deletePlace(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+
+// TILT OS

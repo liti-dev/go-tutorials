@@ -42,8 +42,10 @@ func (db *DB) createPlaceTable() error {
 }
 
 
-func (db *DB) getPlacesDB() ([]Place, error) {
-	rows, err := db.Query("SELECT id, name, address, description FROM places")
+func (db *DB) getPlacesDB(queryName string) ([]Place, error) {	
+	rows, err := db.Query(`SELECT id, name, address, description
+FROM places
+WHERE LOWER(name) LIKE '%' || $1 || '%'`,queryName)
 	if err != nil {
 		return nil, err
 	}
